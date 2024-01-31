@@ -26,6 +26,16 @@ def haproxy_reload():
     th.start()
     return True
     
+def regenerate_camouflage_cert():
+    if settings.get_camouflage_domain_without_protocol() is None:
+        return False
+    
+    if run_command('./haproxy/cert-camouflage.sh ' + settings.get_camouflage_domain_without_protocol()) == 0:
+        haproxy_reload()
+        return True
+    
+    haproxy_reload()
+    return False
 
 def haproxy_renew_certs():
     if run_command('./haproxy/certbot.sh') == 0:
@@ -66,6 +76,7 @@ def haproxy_update_users_list():
             f.write('/' + user['_id'] + '/' + '\n')
             count += 1
         f.write('/' + config.get_proxy_connect_uuid() + '/' + '\n')
+        f.write('/' + config.get_proxy_configuration_uuid() + '/' + '\n')
         count += 1
 
     print("Wrote " + str(count) + " users to haproxy-lists/valid-panel-endpoints.lst")
