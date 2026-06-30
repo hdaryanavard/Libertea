@@ -1,8 +1,8 @@
 import os
-import re
 import random
 import socket
 import requests
+from . import validation
 from pytz import timezone
 from datetime import datetime, timedelta
 from pymongo import MongoClient
@@ -90,7 +90,7 @@ SERVER_MAIN_IP = None
 for i in range(5):
     try:
         ip = requests.get(get_ip_api_url(), timeout=3).content.decode('utf8').strip()
-        if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+        if not validation.is_valid_ipv4(ip):
             print("Failed to get server ip. Result was: " + str(ip))
             continue
 
@@ -102,7 +102,7 @@ for i in range(5):
 if SERVER_MAIN_IP is None:
     raise Exception("couldn't fetch SERVER_MAIN_IP")
 
-if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', SERVER_MAIN_IP):
+if not validation.is_valid_ipv4(SERVER_MAIN_IP):
     raise Exception("couldn't fetch SERVER_MAIN_IP. Result was: " + str(SERVER_MAIN_IP))
 
 # print("SERVER_MAIN_IP: " + SERVER_MAIN_IP)

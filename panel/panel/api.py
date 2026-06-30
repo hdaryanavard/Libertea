@@ -1,8 +1,8 @@
-import re
 import json
 from . import utils
 from . import config
 from . import sysops
+from . import validation
 from pymongo import MongoClient
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 
@@ -10,13 +10,15 @@ blueprint = Blueprint('api', __name__)
 
 def validate_user():
     api_key = request.headers.get('X-API-KEY')
-    if api_key != config.get_hostcontroller_api_key():
+    expected = config.get_hostcontroller_api_key()
+    if not validation.secrets_equal(api_key, expected):
         return False
     return True
 
 def validate_user_panel_secret():
     api_key = request.headers.get('X-API-KEY')
-    if api_key != config.get_panel_secret_key():
+    expected = config.get_panel_secret_key()
+    if not validation.secrets_equal(api_key, expected):
         return False
     return True
 
@@ -166,7 +168,7 @@ def add_route():
     if ip == None or ip == "":
         return "", 404
 
-    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+    if not validation.is_valid_ipv4(ip):
         return "", 404
 
     version = request.form.get('version')
@@ -206,4 +208,3 @@ def add_route():
         pass
     
     return "", 200
-    

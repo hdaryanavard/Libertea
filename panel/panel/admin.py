@@ -10,6 +10,7 @@ from . import config
 from . import sysops
 from . import settings
 from . import health_check
+from . import validation
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, redirect, url_for, flash, request
@@ -137,7 +138,7 @@ def health_domain(domain):
     if domain == 'cache':
         return health_check.get_health_cache()
 
-    hours = int(str(request.args.get('hours', '24')))
+    hours = validation.bounded_int(request.args.get('hours'), 24, 1, 24 * 31)
     return health_check.get_health_data(domain, hours=hours)
 
 def get_bootstrap_env():
@@ -210,12 +211,9 @@ def connection_stats():
     connected_ips_over_time_xs = []
     connected_ips_over_time_ys = []
 
-    days = str(request.args.get('days', '7'))
-    if not days.isdigit():
-        days = '7'
-    days = int(days)
+    days = validation.bounded_int(request.args.get('days'), 7, 1, 366)
 
-    connected_ips_over_time_format = re.compile('[0-9][0-9]\:[0-9][0-9]')
+    connected_ips_over_time_format = re.compile(r'[0-9][0-9]:[0-9][0-9]')
     cur_date = datetime.now() - timedelta(days=days, seconds=1)
     while cur_date <= datetime.now():
         connected_ips_over_time_raw = stats.get_all_connected_ips_over_time(cur_date.year, cur_date.month, cur_date.day)
@@ -236,13 +234,10 @@ def connection_stats_user(user_id):
     connected_ips_over_time_xs = []
     connected_ips_over_time_ys = []
     
-    days = str(request.args.get('days', '7'))
-    if not days.isdigit():
-        days = '7'
-    days = int(days)
+    days = validation.bounded_int(request.args.get('days'), 7, 1, 366)
 
-    connected_ips_over_time_format = re.compile('[0-9][0-9]\:[0-9][0-9]')
-    cur_date = datetime.now() - timedelta(days=7, seconds=1)
+    connected_ips_over_time_format = re.compile(r'[0-9][0-9]:[0-9][0-9]')
+    cur_date = datetime.now() - timedelta(days=days, seconds=1)
     while cur_date <= datetime.now():
         connected_ips_over_time_raw = stats.get_connected_ips_over_time(user_id, cur_date.year, cur_date.month, cur_date.day)
         day_str = cur_date.strftime("%m-%d")
@@ -259,10 +254,7 @@ def connection_stats_user(user_id):
 
 @blueprint.route(root_url + "stats/traffic", methods=['GET'])
 def traffic_stats():
-    days = str(request.args.get('days', '7'))
-    if not days.isdigit():
-        days = '7'
-    days = int(days)
+    days = validation.bounded_int(request.args.get('days'), 7, 1, 366)
 
     traffic_over_time_xs, traffic_over_time_ys = stats.get_traffic_per_day_all(days=days)
     traffic_over_time_xs = [x[5:] for x in traffic_over_time_xs]
@@ -274,10 +266,7 @@ def traffic_stats():
 
 @blueprint.route(root_url + "stats/traffic/user/<user_id>", methods=['GET'])
 def traffic_stats_user(user_id):
-    days = str(request.args.get('days', '7'))
-    if not days.isdigit():
-        days = '7'
-    days = int(days)
+    days = validation.bounded_int(request.args.get('days'), 7, 1, 366)
 
     traffic_over_time_xs, traffic_over_time_ys = stats.get_traffic_per_day(user_id, days=days)
     traffic_over_time_xs = [x[5:] for x in traffic_over_time_xs]
@@ -289,10 +278,7 @@ def traffic_stats_user(user_id):
     
 @blueprint.route(root_url + "stats/traffic/domain/<domain>", methods=['GET'])
 def traffic_stats_domain(domain):
-    days = str(request.args.get('days', '7'))
-    if not days.isdigit():
-        days = '7'
-    days = int(days)
+    days = validation.bounded_int(request.args.get('days'), 7, 1, 366)
 
     traffic_over_time_xs, traffic_over_time_ys = stats.get_traffic_per_day_all(days=days, domain=domain)
     traffic_over_time_xs = [x[5:] for x in traffic_over_time_xs]
@@ -573,6 +559,8 @@ def domain_save(domain):
 
             if len(domain) == 0:
                 return redirect(url_for('admin.dashboard'))
+            if not validation.is_valid_domain(domain):
+                return "Invalid domain", 400
             
             utils.add_domain(domain)
             utils.update_domain_cache(domain, 1)
@@ -607,6 +595,8 @@ def proxydomain_save(id):
             proxy_domain = None
 
         if proxy_domain is not None:
+            if not validation.is_valid_domain(proxy_domain):
+                return "Invalid domain", 400
             proxy_domain_ip = socket.gethostbyname(proxy_domain)
             print(id, ":", "domain", proxy_domain, "points to ip", proxy_domain_ip)
             if proxy_domain_ip != id:

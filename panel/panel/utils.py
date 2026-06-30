@@ -10,6 +10,7 @@ from . import stats
 from . import config
 from . import sysops
 from . import certbot
+from . import validation
 from . import settings
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -242,6 +243,9 @@ def remove_domain(domain):
     return True
 
 def add_domain(domain, dns_domain=None, sni=None):
+    if not validation.is_valid_domain(domain):
+        return 400
+
     client = config.get_mongo_client()
     db = client[config.MONGODB_DB_NAME]
     domains = db.domains

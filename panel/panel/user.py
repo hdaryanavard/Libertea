@@ -45,7 +45,7 @@ def get_user_limitations_info(id):
         return None, None, None, None
 
     traffic_limit = -1
-    traffic_this_month = 0,
+    traffic_this_month = 0
     try:
         traffic_limit = user['monthly_traffic']
         traffic_this_month = round(stats.get_gigabytes_this_month(user['_id']), 2)
@@ -72,7 +72,7 @@ def user_dashboard(id):
         return "", 404
 
     try:
-        ua = request.headers.get('User-Agent')
+        ua = request.headers.get('User-Agent', '')
         if 'Clash' in ua or 'Stash' in ua or 'Shadowrocket' in ua or 'clash' in ua:
             return redirect('/{}/config.yaml'.format(id))
     except:
@@ -120,7 +120,7 @@ def user_config(id, file_name):
     if user is None:
         return "", 404
 
-    ua = request.headers.get('User-Agent')
+    ua = request.headers.get('User-Agent', '')
     print(f"Requested {file_name} with User Agent '{ua}'")
     is_meta = ('Clash' in ua and ('Meta' in ua or 'Stash' in ua)) or 'Shadowrocket' in ua or request.args.get('meta', 'false') == 'true'
     is_premium = 'premium' in ua
