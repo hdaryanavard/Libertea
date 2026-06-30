@@ -3,6 +3,7 @@ import time
 import random
 from . import sysops
 from . import config
+from . import validation
 from datetime import datetime, timedelta
 
 def save_cert(domain, reload_haproxy=True):
@@ -37,6 +38,10 @@ def cert_exists(domain):
     return os.path.isfile(cert_file)
 
 def generate_certificate(domain, retry=True, reload_haproxy=True):
+    if not validation.is_valid_domain(domain):
+        print('Refusing to generate a certificate for invalid domain: ' + repr(domain))
+        return 'failed'
+
     client = config.get_mongo_client()
     db = client[config.MONGODB_DB_NAME]
     domain_certificates = db.domain_certificates
@@ -59,14 +64,15 @@ def generate_certificate(domain, retry=True, reload_haproxy=True):
     email_address = 'info@' + domain 
     print('*** Generating certificate for ' + domain)
 
-    result = sysops.run_command('certbot certonly --standalone -d ' + domain + ' --agree-tos --email ' +
-                                email_address + ' --non-interactive' + ' --http-01-port 9999')
-    if result == 256 and retry:
-        # try again after 10 seconds
-        print('  - Certificate generation failed (256). Retrying in 10 seconds.')
+    command = [
+        'certbot', 'certonly', '--standalone', '-d', domain, '--agree-tos',
+        '--email', email_address, '--non-interactive', '--http-01-port', '9999',
+    ]
+    result = sysops.run_command(command)
+    if result == 1 and retry:
+        print('  - Certificate generation failed (1). Retrying in 10 seconds.')
         time.sleep(10)
-        result = sysops.run_command('certbot certonly --standalone -d ' + domain + ' --agree-tos --email ' +
-                                    email_address + ' --non-interactive' + ' --http-01-port 9999')
+        result = sysops.run_command(command)
 
     if result == 0:
         print('  - Certificate generated successfully')

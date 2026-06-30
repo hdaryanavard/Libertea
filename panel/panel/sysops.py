@@ -1,22 +1,25 @@
 import os
+import subprocess
 import time
 import pymongo
 import threading
 from . import config
 from . import settings
+from . import validation
 
 def run_command(command):
-    # go to root directory
-    os.chdir(config.get_root_dir())
-    # run the command, and return the exit code
-    result = os.system(command)
+    if isinstance(command, str):
+        raise TypeError("run_command requires an argument list, not a shell command")
 
-    print("Ran command '" + command + "' and got exit code " + str(result))
+    result = subprocess.run(command, cwd=config.get_root_dir(), check=False).returncode
+
+    print("Ran command " + repr(command) + " and got exit code " + str(result))
     return result
 
 def ___haproxy_reload_internal(sleep_secs):
     print("**** Reloading haproxy container ****")
-    if run_command('sleep ' + str(sleep_secs) + ' && docker kill -s HUP ' + config.HAPROXY_CONTAINER_NAME) == 0:
+    time.sleep(sleep_secs)
+    if run_command(['docker', 'kill', '-s', 'HUP', config.HAPROXY_CONTAINER_NAME]) == 0:
         return True
     
     return False
@@ -27,10 +30,12 @@ def haproxy_reload():
     return True
     
 def regenerate_camouflage_cert():
-    if settings.get_camouflage_domain_without_protocol() is None:
+    camouflage_domain = settings.get_camouflage_domain_without_protocol()
+    if not validation.is_valid_hostname(camouflage_domain):
+        print("Refusing to generate a camouflage certificate for invalid domain: " + repr(camouflage_domain))
         return False
     
-    if run_command('./haproxy/cert-camouflage.sh ' + settings.get_camouflage_domain_without_protocol()) == 0:
+    if run_command(['./haproxy/cert-camouflage.sh', camouflage_domain]) == 0:
         haproxy_reload()
         return True
     
@@ -38,7 +43,7 @@ def regenerate_camouflage_cert():
     return False
 
 def haproxy_renew_certs():
-    if run_command('./haproxy/certbot.sh') == 0:
+    if run_command(['./haproxy/certbot.sh']) == 0:
         return True
     
     return False
